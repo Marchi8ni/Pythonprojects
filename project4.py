@@ -7,8 +7,11 @@ json_file = request.json()
 print(json_file)
 user_input = input('Enter the question ID: ')
 
-for q in json_file:
-    question_ID = q['quizzes']['questions']['id']
-    city = q['quizzes']['questions']['choices']
-    if question_ID == user_input and city == True:
-        print(f"The correct answer is: {city}")
+for quiz in json_file['quizzes']:
+    for quest in quiz['questions']:
+        questions_list = quest['id']
+        city = quest['choices']
+        if str(questions_list) == user_input:
+            for choice, is_True in city.items():
+                if is_True:
+                    print(f"The correct answer is: {choice}")
