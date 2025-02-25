@@ -1,0 +1,20 @@
+Postup - uživatel může:
+- zobrazit hlavní menu, které umožní uživateli pracovat s programem
+    + vypadat má takto - textový popis menu:
+        * Název Menu: Správce úkolů - Hlavní menu
+        * 1. volba: Přidat nový úkol
+        * 2. volba: Zobrazit všechny úkoly
+        * 3. volba: Odstranit úkol
+        * 4. volba: Konec programu
+    + výběr možnosti - popis fce input:
+        * Vyberte možnost (1-4)
+- přidat nový úkol
+    + umožnit zadat název a popis nového úkolu a uložit jej do seznamu úkolů
+    + název a popis nesmí být prázdné "" -> upozornit a zadat input znovu
+- zobrazit všechny úkoly
+- odstranit úkol
+- ukončit program
+
+a) ukoly budou ukladany do seznamu -> ukoly = []
+
+
