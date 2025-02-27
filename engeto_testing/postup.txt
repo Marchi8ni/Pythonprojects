@@ -1,4 +1,5 @@
-Postup - uživatel může:
+Postup pro tvorbu programu
+Možnosti uživatele:
 - zobrazit hlavní menu, které umožní uživateli pracovat s programem
     + vypadat má takto - textový popis menu:
         * Název Menu: Správce úkolů - Hlavní menu
