@@ -1,5 +1,3 @@
-from ftplib import error_perm
-
 import mysql.connector as mc
 import mysql.connector.errors as err
 import datetime as dt
@@ -11,7 +9,13 @@ import datetime as dt
 # 2. úprava kodu z TM1 - ošetření chyb zjištěných v testu ✅
 # 3. implementace připojení databáze k programu ✅ - ošetření tvorbou class Databaze
 # 4. implementace nové metody pro aktualizaci ukolů ✅ - def aktualizovat_ukoly()
+# 5. refaktoring pro zajištění metody DRY -- opakuje se: ✅
+#       - ověření id
+#       - ošetření chyb
+#       - ověření dat v db
+#       Návrh -> vytvoření nové class Pomocník
 # ###
+
 
 class Databaze:
     def __init__(self, host="localhost", user="root", password="alatriste", database="sys"):
@@ -36,7 +40,7 @@ class Databaze:
             self.cursor = self.conn.cursor()
             print('připojení k databázi se zdařilo')
         except err:
-            print(f'chyba v připojení{err}')
+            Pomocnik.chybova_hlaska()
 
 
     def vytvoreni_tabulky(self):
@@ -53,11 +57,46 @@ class Databaze:
             '''
                            )
         except err:
-            print(f'nastala chyba při vytváření tabulky {err}')
+            Pomocnik.chybova_hlaska()
+
 
 class Menu:
     def zobrazit(self):
         print("Správce úkolů - Hlavní menu \n 1. Přidat nový úkol \n 2. Zobrazit úkoly \n 3. Aktualizovat úkol \n 4. Odstranit úkol \n 5. Konec Programu ")
+
+
+class Pomocnik:
+    @staticmethod
+    def chybova_hlaska():
+        """Zobrazí chybovou hlášku"""
+        print(f"Nastala neočekávaná chyba: \n {err}")
+
+    @staticmethod
+    def overeni_id(db):
+        """Ověří, zda existuje zadané ID v databázi."""
+        try:
+            ukol_cislo = int(input("\n Vyberte id úkolu, který chcete aktualizovat/odstranit: "))
+            db.cursor.execute("SELECT id from ukoly where id = %s", (ukol_cislo,))
+            id_check = db.cursor.fetchone()
+            return ukol_cislo, id_check
+        except err:
+            Pomocnik.chybova_hlaska()
+
+    @staticmethod
+    def overeni_dat(db, query):
+        """Ověří, zda existují úkoly v db."""
+        try:
+            db.cursor.execute(query)
+            prvni_zaznam = db.cursor.fetchone()[0]
+            if prvni_zaznam is None:
+                print("Seznam úkolů je prázdný.")
+            else:
+                print("Seznam úkolů:")
+                vsechny_zaznamy = db.cursor.fetchall()
+                for row in vsechny_zaznamy:
+                    print(row)
+        except err:
+            Pomocnik.chybova_hlaska()
 
 
 class Ukoly:
@@ -71,23 +110,14 @@ class Ukoly:
                 db.conn.commit()
                 print(f"Úkol '{ukol_nazev}' byl přidán.")
            except err:
-               print(f'Chyba při vkládání dat {err}')
+               Pomocnik.chybova_hlaska()
 
         else:
             print('název a popis nesmí být prázdný text. Opakuj volbu!')
 
     def zobrazit_ukoly(self):
-        try:
-            db.cursor.execute("SELECT id, nazev, popis, stav FROM ukoly WHERE stav IN ('Probíhá', 'nezahájeno')")
-            self.ukoly = db.cursor.fetchall()
-            if not self.ukoly:
-                print("Seznam úkolů je prázdný.")
-            else:
-                print("Seznam úkolů:")
-                for row in self.ukoly:
-                    print(row)
-        except err:
-            print(f"chyba {err}")
+        query = "SELECT id, nazev, popis, stav FROM ukoly WHERE stav IN ('Probíhá', 'nezahájeno')"
+        Pomocnik.overeni_dat(db, query)
 
     def aktualizovat_ukoly(self):
         ###
@@ -100,56 +130,35 @@ class Ukoly:
         #
         # ###
 
+        query = "SELECT ID, nazev, stav FROM ukoly"
+        Pomocnik.overeni_dat(db, query)
         try:
-            db.cursor.execute("SELECT ID, nazev, stav FROM ukoly")
-            self.ukoly = db.cursor.fetchall()
-            if not self.ukoly:
-                print("Seznam úkolů je prázdný.")
+            ukol_cislo, id_check = Pomocnik.overeni_id(db)
+            if not id_check:
+                print('Zadejte platné ID!')
             else:
-                print("Seznam úkolů:")
-                for row in self.ukoly:
-                    print(row)
-        except err:
-            print(f"chyba {err}")
-
-        volba_id = input('Pro změnu stavu ukolu, zadejte ID:')
-
-        try:
-            volba_stav = int(input('zadejte číslo stavu úkolu: \n č.1 - Probíhá \n č.2 - Hotovo '))
-            if volba_stav == 1:
-                novy_stav = "Probíhá"
-            elif volba_stav == 2:
-                novy_stav = "Hotovo"
-            else:
-                print("Neplatná volba, opakujte zadání!")
+                volba_stav = int(input('zadejte číslo stavu úkolu: \n č.1 - Probíhá \n č.2 - Hotovo '))
+                if volba_stav == 1:
+                    novy_stav = "Probíhá"
+                elif volba_stav == 2:
+                    novy_stav = "Hotovo"
+                else:
+                    print("Neplatná volba, opakujte zadání!")
         except ValueError:
             print('Zadejte číselnou hodnotu!')
         except err:
-            print(f"chyba {err}")
+            Pomocnik.chybova_hlaska()
 
-        db.cursor.execute("UPDATE ukoly set stav = %s where id = %s", (novy_stav, volba_id))
+        db.cursor.execute("UPDATE ukoly set stav = %s where id = %s", (novy_stav, ukol_cislo))
         db.conn.commit()
         print("Stav úkolu byl úspěšně změněn")
 
 
     def odstranit_ukol(self):
-        try:
-            db.cursor.execute("SELECT * FROM ukoly")
-            prvni_zaznam = db.cursor.fetchone()[0]
-            if prvni_zaznam is None:
-                print('Neexistují žádné záznamy k odstranění.')
-            else:
-                vsechny_zaznamy = db.cursor.fetchall()
-                for row in vsechny_zaznamy:
-                    print(row)
-        except ValueError:
-            print("Zadejte platný vstup!")
-        except err:
-            print(f"chyba {err}")
+        query = "SELECT * FROM ukoly"
+        Pomocnik.overeni_dat(db, query)
 
-        ukol_cislo = int(input("\n Vyberte id úkolu, který chcete odstranit: "))
-        db.cursor.execute("SELECT id from ukoly where id = %s", (ukol_cislo,))
-        id_check = db.cursor.fetchone()
+        ukol_cislo, id_check = Pomocnik.overeni_id(db)
         if not id_check:
             print('Zadejte platné ID')
         else:
@@ -188,10 +197,6 @@ while True:
             print("Neplatná volba. Zkuste to znovu.")
     except ValueError:
         print('Neplatná volba, zkuste zadat znovu!')
-
-
-
-
 
 
 # uzavření kurzoru a ukončení připojení k databází ⛔
