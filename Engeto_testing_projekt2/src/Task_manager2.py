@@ -2,6 +2,8 @@ import mysql.connector as mc
 import mysql.connector.errors as err
 import datetime as dt
 
+from db_sql_invoices import query
+
 
 ###
 # Hlavní část kódu ⬇️🚧💭
@@ -31,10 +33,10 @@ class Databaze:
         # nastavení připojení k databázi ⚠️
         try:
             self.conn = mc.connect(
-                host="localhost",
-                user="root",
-                password="alatriste",
-                database="sys"
+                host=self.host,
+                user=self.user,
+                password=self.password,
+                database=self.database
             )
             # If conn Ok, vytvoří se kurzor pro provádění SQL příkazů ️
             self.cursor = self.conn.cursor()
@@ -100,14 +102,18 @@ class Pomocnik:
 
 
 class Ukoly:
+    def __init__(self, db_instance, table_name="ukoly"):
+        self.db = db_instance
+        self.table_name = table_name
     def pridat_ukol(self):
         ukol_nazev = input("Zadejte název úkolu: ")
         ukol_popis = input("Zadejte popis úkolu:")
         datum = dt.datetime.now()
         if ukol_nazev and ukol_popis != "":
            try:
-                db.cursor.execute("Insert into ukoly (nazev, popis, stav, datum_vytvoreni) VALUES(%s, %s, %s, %s)", (ukol_nazev, ukol_popis,"Nezahájeno",datum))
-                db.conn.commit()
+                query=f"INSERT INTO {self.table_name} VALUES (%s, %s, %s, %s)"
+                self.db.cursor.execute(query, (ukol_nazev, ukol_popis,"Nezahájeno",datum))
+                self.db.conn.commit()
                 print(f"Úkol '{ukol_nazev}' byl přidán.")
            except err:
                Pomocnik.chybova_hlaska()
@@ -116,8 +122,8 @@ class Ukoly:
             print('název a popis nesmí být prázdný text. Opakuj volbu!')
 
     def zobrazit_ukoly(self):
-        query = "SELECT id, nazev, popis, stav FROM ukoly WHERE stav IN ('Probíhá', 'nezahájeno')"
-        Pomocnik.overeni_dat(db, query)
+        query = f"SELECT id, nazev, popis, stav FROM {self.table_name} WHERE stav IN ('Probíhá', 'nezahájeno')"
+        Pomocnik.overeni_dat(db_instance, query)
 
     def aktualizovat_ukoly(self):
         ###
@@ -130,10 +136,10 @@ class Ukoly:
         #
         # ###
 
-        query = "SELECT ID, nazev, stav FROM ukoly"
-        Pomocnik.overeni_dat(db, query)
+        query = f"SELECT ID, nazev, stav FROM {self.table_name}"
+        Pomocnik.overeni_dat(db_instance, query)
         try:
-            ukol_cislo, id_check = Pomocnik.overeni_id(db)
+            ukol_cislo, id_check = Pomocnik.overeni_id(db_instance)
             if not id_check:
                 print('Zadejte platné ID!')
             else:
@@ -149,31 +155,31 @@ class Ukoly:
         except err:
             Pomocnik.chybova_hlaska()
 
-        db.cursor.execute("UPDATE ukoly set stav = %s where id = %s", (novy_stav, ukol_cislo))
-        db.conn.commit()
+        self.db.cursor.execute(f"UPDATE {self.table_name} set stav = %s where id = %s", (novy_stav, ukol_cislo))
+        self.db.conn.commit()
         print("Stav úkolu byl úspěšně změněn")
 
 
     def odstranit_ukol(self):
-        query = "SELECT * FROM ukoly"
-        Pomocnik.overeni_dat(db, query)
+        query = f"SELECT * FROM {self.table_name}"
+        Pomocnik.overeni_dat(db_instance, query)
 
-        ukol_cislo, id_check = Pomocnik.overeni_id(db)
+        ukol_cislo, id_check = Pomocnik.overeni_id(db_instance)
         if not id_check:
             print('Zadejte platné ID')
         else:
-            db.cursor.execute("DELETE FROM ukoly WHERE id = %s", (ukol_cislo,))
-            db.conn.commit()
+            self.db.cursor.execute(f"DELETE FROM {self.table_name} WHERE id = %s", (ukol_cislo,))
+            self.db.conn.commit()
             print(f"Záznam s ID {ukol_cislo} byl úspěšně odstraněn.")
+
+# připojení k databázi
+db_instance = Databaze()
+db_instance.pripojeni_db()
 
 # Vytvoření instancí mimo smyčku
 
 menu = Menu()
-ukoly_instance = Ukoly()
-
-# připojení k databázi
-db = Databaze()
-db.pripojeni_db()
+ukoly_instance = Ukoly(db_instance)
 
 # Hlavní smyčka programu
 while True:
@@ -200,5 +206,5 @@ while True:
 
 
 # uzavření kurzoru a ukončení připojení k databází ⛔
-db.cursor.close()
-db.conn.close()
+db_instance.cursor.close()
+db_instance.conn.close()
