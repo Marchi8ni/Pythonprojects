@@ -1,6 +1,6 @@
 import pytest
 import mysql.connector as mc
-from Engeto_testing_projekt2.src.Task_manager2 import Ukoly, Menu, Pomocnik, Databaze
+from src.Task_manager2 import Ukoly, Menu, Pomocnik, Databaze
 
 @pytest.fixture(scope="module")
 def db_connection():
@@ -43,7 +43,13 @@ def ukoly(db_connection):
 
 def test_pridat_ukol(ukoly):
     # pozitivní test
-    ukoly.pridat_ukol()
+    ukoly.pridat_ukol(ukol_nazev="Testovací Úkol", ukol_popis="Testovací Popis")
+    # ověření předání dat do tabulky testovací databáze
+    ukoly.db.cursor.execute(f"SELECT nazev, popis FROM {ukoly.table_name} WHERE nazev = %s", ("Testovací Úkol",))
+    result = ukoly.db.cursor.fetchone()
+    assert result is not None, "Úkol nebyl přidán do databáze."
+    assert result[0] == "Testovací Úkol", "Název nesouhlasí."
+    assert result[1] == "Testovací Popis", "Popis nesouhlasí."
 
 
 

@@ -2,8 +2,6 @@ import mysql.connector as mc
 import mysql.connector.errors as err
 import datetime as dt
 
-from db_sql_invoices import query
-
 
 ###
 # Hlavní část kódu ⬇️🚧💭
@@ -105,13 +103,15 @@ class Ukoly:
     def __init__(self, db_instance, table_name="ukoly"):
         self.db = db_instance
         self.table_name = table_name
-    def pridat_ukol(self):
-        ukol_nazev = input("Zadejte název úkolu: ")
-        ukol_popis = input("Zadejte popis úkolu:")
+    def pridat_ukol(self, ukol_nazev=None, ukol_popis= None):
+        if ukol_nazev is None:
+            ukol_nazev = input("Zadejte název úkolu: ").strip()
+        if ukol_popis is None:
+            ukol_popis = input("Zadejte popis úkolu:").strip()
         datum = dt.datetime.now()
-        if ukol_nazev and ukol_popis != "":
+        if ukol_nazev != "" and ukol_popis != "":
            try:
-                query=f"INSERT INTO {self.table_name} VALUES (%s, %s, %s, %s)"
+                query=f"INSERT INTO {self.table_name} (nazev, popis, stav, datum_vytvoreni) VALUES (%s, %s, %s, %s)"
                 self.db.cursor.execute(query, (ukol_nazev, ukol_popis,"Nezahájeno",datum))
                 self.db.conn.commit()
                 print(f"Úkol '{ukol_nazev}' byl přidán.")
@@ -171,40 +171,40 @@ class Ukoly:
             self.db.cursor.execute(f"DELETE FROM {self.table_name} WHERE id = %s", (ukol_cislo,))
             self.db.conn.commit()
             print(f"Záznam s ID {ukol_cislo} byl úspěšně odstraněn.")
+if __name__ == "__main__":
+    # připojení k databázi
+    db_instance = Databaze()
+    db_instance.pripojeni_db()
 
-# připojení k databázi
-db_instance = Databaze()
-db_instance.pripojeni_db()
+    # Vytvoření instancí mimo smyčku
 
-# Vytvoření instancí mimo smyčku
+    menu = Menu()
+    ukoly_instance = Ukoly(db_instance)
 
-menu = Menu()
-ukoly_instance = Ukoly(db_instance)
+    # Hlavní smyčka programu
+    while True:
 
-# Hlavní smyčka programu
-while True:
+        menu.zobrazit()
+        try:
+            volba = int(input("Vyberte možnost (1-5): "))
 
-    menu.zobrazit()
-    try:
-        volba = int(input("Vyberte možnost (1-5): "))
-
-        if volba == 1:
-            ukoly_instance.pridat_ukol()
-        elif volba == 2:
-            ukoly_instance.zobrazit_ukoly()
-        elif volba == 3:
-            ukoly_instance.aktualizovat_ukoly()
-        elif volba == 4:
-            ukoly_instance.odstranit_ukol()
-        elif volba == 5:
-            print("Program byl ukončen.")
-            break
-        else:
-            print("Neplatná volba. Zkuste to znovu.")
-    except ValueError:
-        print('Neplatná volba, zkuste zadat znovu!')
+            if volba == 1:
+                ukoly_instance.pridat_ukol()
+            elif volba == 2:
+                ukoly_instance.zobrazit_ukoly()
+            elif volba == 3:
+                ukoly_instance.aktualizovat_ukoly()
+            elif volba == 4:
+                ukoly_instance.odstranit_ukol()
+            elif volba == 5:
+                print("Program byl ukončen.")
+                break
+            else:
+                print("Neplatná volba. Zkuste to znovu.")
+        except ValueError:
+            print('Neplatná volba, zkuste zadat znovu!')
 
 
-# uzavření kurzoru a ukončení připojení k databází ⛔
-db_instance.cursor.close()
-db_instance.conn.close()
+    # uzavření kurzoru a ukončení připojení k databází ⛔
+    db_instance.cursor.close()
+    db_instance.conn.close()
