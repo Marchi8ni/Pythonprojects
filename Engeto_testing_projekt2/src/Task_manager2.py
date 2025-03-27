@@ -66,43 +66,47 @@ class Menu:
 
 
 class Pomocnik:
-    @staticmethod
-    def chybova_hlaska():
+    def __init__(self, db_instance, table_name="ukoly"):
+        self.db = db_instance
+        self.table_name = table_name
+
+    def chybova_hlaska(self):
         """Zobrazí chybovou hlášku"""
         print(f"Nastala neočekávaná chyba: \n {err}")
 
-    @staticmethod
-    def overeni_id(db):
+
+    def overeni_id(self, ukol_cislo=None):
         """Ověří, zda existuje zadané ID v databázi."""
-        try:
+        if ukol_cislo is None:
             ukol_cislo = int(input("\n Vyberte id úkolu, který chcete aktualizovat/odstranit: "))
-            db.cursor.execute("SELECT id from ukoly where id = %s", (ukol_cislo,))
-            id_check = db.cursor.fetchone()
+        try:
+            self.db.cursor.execute(f"SELECT id from {self.table_name} where id = %s", (ukol_cislo,))
+            id_check = self.db.cursor.fetchone()
             return ukol_cislo, id_check
         except err:
-            Pomocnik.chybova_hlaska()
+            self.chybova_hlaska()
 
-    @staticmethod
-    def overeni_dat(db, query):
+    def overeni_dat(self, query):
         """Ověří, zda existují úkoly v db."""
         try:
-            db.cursor.execute(query)
-            prvni_zaznam = db.cursor.fetchone()[0]
+            self.db.cursor.execute(query)
+            prvni_zaznam = self.db.cursor.fetchone()[0]
             if prvni_zaznam is None:
                 print("Seznam úkolů je prázdný.")
             else:
                 print("Seznam úkolů:")
-                vsechny_zaznamy = db.cursor.fetchall()
+                vsechny_zaznamy = self.db.cursor.fetchall()
                 for row in vsechny_zaznamy:
                     print(row)
         except err:
-            Pomocnik.chybova_hlaska()
+            self.chybova_hlaska()
 
 
 class Ukoly:
-    def __init__(self, db_instance, table_name="ukoly"):
+    def __init__(self, db_instance, pomocnik_instance, table_name="ukoly"):
         self.db = db_instance
         self.table_name = table_name
+        self.pomocnik = pomocnik_instance
     def pridat_ukol(self, ukol_nazev=None, ukol_popis= None):
         if ukol_nazev is None:
             ukol_nazev = input("Zadejte název úkolu: ").strip()
@@ -116,16 +120,16 @@ class Ukoly:
                 self.db.conn.commit()
                 print(f"Úkol '{ukol_nazev}' byl přidán.")
            except err:
-               Pomocnik.chybova_hlaska()
+               self.pomocnik.chybova_hlaska()
 
         else:
             print('název a popis nesmí být prázdný text. Opakuj volbu!')
 
     def zobrazit_ukoly(self):
         query = f"SELECT id, nazev, popis, stav FROM {self.table_name} WHERE stav IN ('Probíhá', 'nezahájeno')"
-        Pomocnik.overeni_dat(db_instance, query)
+        self.pomocnik.overeni_dat(query)
 
-    def aktualizovat_ukoly(self):
+    def aktualizovat_ukoly(self, volba_stav = None, ukol_cislo = None):
         ###
         # Změna stavu úkolu
         # - Uživatel vidí seznam úkolů (ID, název, stav).
@@ -137,23 +141,24 @@ class Ukoly:
         # ###
 
         query = f"SELECT ID, nazev, stav FROM {self.table_name}"
-        Pomocnik.overeni_dat(db_instance, query)
+        self.pomocnik.overeni_dat(query)
         try:
-            ukol_cislo, id_check = Pomocnik.overeni_id(db_instance)
+            ukol_cislo, id_check = self.pomocnik.overeni_id(ukol_cislo)
             if not id_check:
                 print('Zadejte platné ID!')
             else:
-                volba_stav = int(input('zadejte číslo stavu úkolu: \n č.1 - Probíhá \n č.2 - Hotovo '))
-                if volba_stav == 1:
-                    novy_stav = "Probíhá"
-                elif volba_stav == 2:
-                    novy_stav = "Hotovo"
-                else:
-                    print("Neplatná volba, opakujte zadání!")
-        except ValueError:
-            print('Zadejte číselnou hodnotu!')
+                if volba_stav is None:
+                    try:
+                        volba_stav = int(input('zadejte číslo stavu úkolu: \n č.1 - Probíhá \n č.2 - Hotovo '))
+                        if volba_stav not in [1,2]:
+                            print("Neplatná volba, opakujte zadání!")
+                    except ValueError:
+                        print('Zadejte číselnou hodnotu!')
+
+                novy_stav = "Probíhá" if volba_stav == 1 else "Hotovo"
+
         except err:
-            Pomocnik.chybova_hlaska()
+            self.pomocnik.chybova_hlaska()
 
         self.db.cursor.execute(f"UPDATE {self.table_name} set stav = %s where id = %s", (novy_stav, ukol_cislo))
         self.db.conn.commit()
@@ -162,9 +167,9 @@ class Ukoly:
 
     def odstranit_ukol(self):
         query = f"SELECT * FROM {self.table_name}"
-        Pomocnik.overeni_dat(db_instance, query)
+        self.pomocnik.overeni_dat(db_instance, query)
 
-        ukol_cislo, id_check = Pomocnik.overeni_id(db_instance)
+        ukol_cislo, id_check = self.pomocnik.overeni_id(db_instance)
         if not id_check:
             print('Zadejte platné ID')
         else:
@@ -178,8 +183,9 @@ if __name__ == "__main__":
 
     # Vytvoření instancí mimo smyčku
 
+    pomocnik_instance = Pomocnik(db_instance)
+    ukoly_instance = Ukoly(db_instance, pomocnik_instance)
     menu = Menu()
-    ukoly_instance = Ukoly(db_instance)
 
     # Hlavní smyčka programu
     while True:

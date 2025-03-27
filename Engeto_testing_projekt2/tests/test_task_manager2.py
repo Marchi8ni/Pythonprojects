@@ -38,10 +38,11 @@ def ukoly(db_connection):
     db_instance = Databaze(database="testovaci")
     db_instance.conn = db_connection
     db_instance.cursor = db_connection.cursor()
-    return Ukoly(db_instance, table_name="test_TM2")
+    pomocnik_instance = Pomocnik(db_instance, table_name="test_TM2")
+    return Ukoly(db_instance, pomocnik_instance, table_name="test_TM2")
 
 
-def test_pridat_ukol(ukoly):
+def test_pridat_ukol_pozitivni(ukoly):
     # pozitivní test
     ukoly.pridat_ukol(ukol_nazev="Testovací Úkol", ukol_popis="Testovací Popis")
     # ověření předání dat do tabulky testovací databáze
@@ -51,5 +52,15 @@ def test_pridat_ukol(ukoly):
     assert result[0] == "Testovací Úkol", "Název nesouhlasí."
     assert result[1] == "Testovací Popis", "Popis nesouhlasí."
 
+def test_aktualizovat_ukol(ukoly):
+    #pozitivní test
+    # spuštění metody pro aktualizaci ukolu
+    ukoly.aktualizovat_ukoly(ukol_cislo = 1, volba_stav = 2 )
+
+    # Ověření, že stav byl aktualizován
+    ukoly.db.cursor.execute(f"SELECT stav FROM {ukoly.table_name} WHERE nazev = %s", ("Testovací Úkol",))
+    result = ukoly.db.cursor.fetchone()
+    assert result is not None, "Úkol nebyl nalezen."
+    assert result[0] == "Hotovo", "Stav úkolu nebyl správně aktualizován."
 
 
