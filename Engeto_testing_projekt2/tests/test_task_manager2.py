@@ -63,4 +63,13 @@ def test_aktualizovat_ukol(ukoly):
     assert result is not None, "Úkol nebyl nalezen."
     assert result[0] == "Hotovo", "Stav úkolu nebyl správně aktualizován."
 
+def test_odstranit_ukol(ukoly):
+    #pozitivní test
+    # spuštění metody pro aktualizaci ukolu
+    ukoly.odstranit_ukol(ukol_cislo = 1)
+
+    # ověření, že byl úkol odstraněn
+    ukoly.db.cursor.execute(f"SELECT * FROM {ukoly.table_name} WHERE id = %s", (1,))
+    result = ukoly.db.cursor.fetchone()
+    assert result is None, "Úkol nebyl úspěšně odstraněn z databáze."
 

@@ -165,17 +165,19 @@ class Ukoly:
         print("Stav úkolu byl úspěšně změněn")
 
 
-    def odstranit_ukol(self):
+    def odstranit_ukol(self, ukol_cislo=None):
         query = f"SELECT * FROM {self.table_name}"
-        self.pomocnik.overeni_dat(db_instance, query)
+        self.pomocnik.overeni_dat(query)
 
-        ukol_cislo, id_check = self.pomocnik.overeni_id(db_instance)
+        ukol_cislo, id_check = self.pomocnik.overeni_id(ukol_cislo)
         if not id_check:
             print('Zadejte platné ID')
         else:
             self.db.cursor.execute(f"DELETE FROM {self.table_name} WHERE id = %s", (ukol_cislo,))
             self.db.conn.commit()
             print(f"Záznam s ID {ukol_cislo} byl úspěšně odstraněn.")
+
+
 if __name__ == "__main__":
     # připojení k databázi
     db_instance = Databaze()
