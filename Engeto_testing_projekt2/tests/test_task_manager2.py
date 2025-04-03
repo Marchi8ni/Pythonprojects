@@ -1,7 +1,8 @@
 import pytest
 import mysql.connector as mc
-from src.Task_manager2 import Ukoly, Menu, Pomocnik, Databaze
+from src.Task_manager2 import Ukoly, Pomocnik, Databaze
 
+# Nastavení testovací databáze
 @pytest.fixture(scope="module")
 def db_connection():
     spojeni = mc.connect(
@@ -33,6 +34,7 @@ def db_connection():
     kurzor.close()
     spojeni.close()
 
+# spojení databáze se zdrojovým kodem
 @pytest.fixture()
 def ukoly(db_connection):
     db_instance = Databaze(database="testovaci")
@@ -41,8 +43,10 @@ def ukoly(db_connection):
     pomocnik_instance = Pomocnik(db_instance, table_name="test_TM2")
     return Ukoly(db_instance, pomocnik_instance, table_name="test_TM2")
 
+# Pozitivní testy:
 
-def test_pridat_ukol_pozitivni(ukoly):
+
+def test_pridat_ukol(ukoly):
     # pozitivní test
     ukoly.pridat_ukol(ukol_nazev="Testovací Úkol", ukol_popis="Testovací Popis")
     # ověření předání dat do tabulky testovací databáze
@@ -72,4 +76,18 @@ def test_odstranit_ukol(ukoly):
     ukoly.db.cursor.execute(f"SELECT * FROM {ukoly.table_name} WHERE id = %s", (1,))
     result = ukoly.db.cursor.fetchone()
     assert result is None, "Úkol nebyl úspěšně odstraněn z databáze."
+
+# Negativní testy:
+
+@pytest.mark.parametrize("nazev, popis, ocekavana_hodnota", [
+   # Překročení délky sloupce
+    ('A' * 51, 'B' * 101,
+     mc.errors.DataError),
+    ("", "",
+     mc.errors.DataError)
+])
+def test_neplatna_data(ukoly, nazev, popis, ocekavana_hodnota):
+    with pytest.raises(ocekavana_hodnota):
+        ukoly.pridat_ukol(nazev, popis, testovaci_rezim=True)
+
 

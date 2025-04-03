@@ -107,7 +107,7 @@ class Ukoly:
         self.db = db_instance
         self.table_name = table_name
         self.pomocnik = pomocnik_instance
-    def pridat_ukol(self, ukol_nazev=None, ukol_popis= None):
+    def pridat_ukol(self, ukol_nazev=None, ukol_popis= None, testovaci_rezim=False):
         if ukol_nazev is None:
             ukol_nazev = input("Zadejte název úkolu: ").strip()
         if ukol_popis is None:
@@ -116,12 +116,21 @@ class Ukoly:
         if ukol_nazev != "" and ukol_popis != "":
            try:
                 query=f"INSERT INTO {self.table_name} (nazev, popis, stav, datum_vytvoreni) VALUES (%s, %s, %s, %s)"
-                self.db.cursor.execute(query, (ukol_nazev, ukol_popis,"Nezahájeno",datum))
+                self.db.cursor.execute(query, (ukol_nazev, ukol_popis, "Nezahájeno", datum))
                 self.db.conn.commit()
                 print(f"Úkol '{ukol_nazev}' byl přidán.")
-           except err:
-               self.pomocnik.chybova_hlaska()
-
+           except Exception as e:
+                print(f"nastala neočekávaná chyba: {e}")
+                if testovaci_rezim:
+                    raise
+           except err.InterfaceError as i_err:
+                print(f"Chyba rozhraní databáze: {i_err}")
+                if testovaci_rezim:
+                    raise
+           except err.DataError as d_err:
+               print(f"Chyba dat: {d_err}")
+               if testovaci_rezim:
+                   raise
         else:
             print('název a popis nesmí být prázdný text. Opakuj volbu!')
 
