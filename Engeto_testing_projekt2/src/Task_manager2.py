@@ -87,19 +87,29 @@ class Pomocnik:
             self.chybova_hlaska()
 
     def overeni_dat(self, query):
-        """Ověří, zda existují úkoly v db."""
+        """Ověří, zda existují úkoly v db a zobrazí je univerzálně."""
         try:
             self.db.cursor.execute(query)
-            prvni_zaznam = self.db.cursor.fetchone()[0]
-            if prvni_zaznam is None:
+            vsechny_zaznamy = self.db.cursor.fetchall()
+
+            # Pokud nejsou žádné záznamy
+            if not vsechny_zaznamy:
                 print("Seznam úkolů je prázdný.")
-            else:
-                print("Seznam úkolů:")
-                vsechny_zaznamy = self.db.cursor.fetchall()
-                for row in vsechny_zaznamy:
-                    print(row)
-        except err:
-            self.chybova_hlaska()
+                return
+
+            # Získání názvů sloupců z kurzoru
+            nadpisy = [desc[0] for desc in self.db.cursor.description]
+
+            # Tisk záhlaví
+            print(" | ".join(nadpisy))
+            print("-" * 40)  # Oddělovač
+
+            # Tisk dat
+            for row in vsechny_zaznamy:
+                print(" | ".join(str(value) for value in row))
+
+        except mc.errors.Error as db_err:
+            self.chybova_hlaska(db_err)
 
 
 class Ukoly:
@@ -113,32 +123,33 @@ class Ukoly:
         if ukol_popis is None:
             ukol_popis = input("Zadejte popis úkolu:").strip()
         datum = dt.datetime.now()
-        if ukol_nazev != "" and ukol_popis != "":
-           try:
-                query=f"INSERT INTO {self.table_name} (nazev, popis, stav, datum_vytvoreni) VALUES (%s, %s, %s, %s)"
-                self.db.cursor.execute(query, (ukol_nazev, ukol_popis, "Nezahájeno", datum))
-                self.db.conn.commit()
-                print(f"Úkol '{ukol_nazev}' byl přidán.")
-           except Exception as e:
+        try:
+            if not ukol_nazev.strip() and not ukol_popis.strip():
+                raise ValueError('název a popis nesmí být prázdný text. Opakuj volbu!')
+
+            query=f"INSERT INTO {self.table_name} (nazev, popis, stav, datum_vytvoreni) VALUES (%s, %s, %s, %s)"
+            self.db.cursor.execute(query, (ukol_nazev, ukol_popis, "Nezahájeno", datum))
+            self.db.conn.commit()
+            print(f"Úkol '{ukol_nazev}' byl přidán.")
+        except Exception as e:
                 print(f"nastala neočekávaná chyba: {e}")
                 if testovaci_rezim:
                     raise
-           except err.InterfaceError as i_err:
+        except err.InterfaceError as i_err:
                 print(f"Chyba rozhraní databáze: {i_err}")
                 if testovaci_rezim:
                     raise
-           except err.DataError as d_err:
+        except err.DataError as d_err:
                print(f"Chyba dat: {d_err}")
                if testovaci_rezim:
                    raise
-        else:
-            print('název a popis nesmí být prázdný text. Opakuj volbu!')
+
 
     def zobrazit_ukoly(self):
         query = f"SELECT id, nazev, popis, stav FROM {self.table_name} WHERE stav IN ('Probíhá', 'nezahájeno')"
         self.pomocnik.overeni_dat(query)
 
-    def aktualizovat_ukoly(self, volba_stav = None, ukol_cislo = None):
+    def aktualizovat_ukoly(self, volba_stav = None, ukol_cislo = None, testovaci_rezim=False):
         ###
         # Změna stavu úkolu
         # - Uživatel vidí seznam úkolů (ID, název, stav).
@@ -154,38 +165,47 @@ class Ukoly:
         try:
             ukol_cislo, id_check = self.pomocnik.overeni_id(ukol_cislo)
             if not id_check:
-                print('Zadejte platné ID!')
+                raise ValueError('Zadejte platné ID!')
             else:
                 if volba_stav is None:
-                    try:
-                        volba_stav = int(input('zadejte číslo stavu úkolu: \n č.1 - Probíhá \n č.2 - Hotovo '))
-                        if volba_stav not in [1,2]:
-                            print("Neplatná volba, opakujte zadání!")
-                    except ValueError:
-                        print('Zadejte číselnou hodnotu!')
+                    volba_stav = int(input('zadejte číslo stavu úkolu: \n č.1 - Probíhá \n č.2 - Hotovo '))
+                    if volba_stav not in [1,2]:
+                        raise ValueError("Neplatná volba, opakujte zadání!")
 
-                novy_stav = "Probíhá" if volba_stav == 1 else "Hotovo"
+            novy_stav = "Probíhá" if volba_stav == 1 else "Hotovo"
 
-        except err:
-            self.pomocnik.chybova_hlaska()
+            self.db.cursor.execute(f"UPDATE {self.table_name} set stav = %s where id = %s", (novy_stav, ukol_cislo))
+            self.db.conn.commit()
+            print("Stav úkolu byl úspěšně změněn")
 
-        self.db.cursor.execute(f"UPDATE {self.table_name} set stav = %s where id = %s", (novy_stav, ukol_cislo))
-        self.db.conn.commit()
-        print("Stav úkolu byl úspěšně změněn")
+        except mc.errors.Error as db_err:
+            print(f"Chyba databáze: {db_err}")
+            if testovaci_rezim:
+                raise
+        except ValueError as v_err:
+            print(f'chyba: {v_err}')
 
 
-    def odstranit_ukol(self, ukol_cislo=None):
+
+    def odstranit_ukol(self, ukol_cislo=None, testovaci_rezim=False):
         query = f"SELECT * FROM {self.table_name}"
         self.pomocnik.overeni_dat(query)
-
-        ukol_cislo, id_check = self.pomocnik.overeni_id(ukol_cislo)
-        if not id_check:
-            print('Zadejte platné ID')
-        else:
-            self.db.cursor.execute(f"DELETE FROM {self.table_name} WHERE id = %s", (ukol_cislo,))
-            self.db.conn.commit()
-            print(f"Záznam s ID {ukol_cislo} byl úspěšně odstraněn.")
-
+        try:
+            ukol_cislo, id_check = self.pomocnik.overeni_id(ukol_cislo)
+            if not id_check:
+                raise ValueError('Zadejte platné ID!')
+            else:
+                self.db.cursor.execute(f"DELETE FROM {self.table_name} WHERE id = %s", (ukol_cislo,))
+                self.db.conn.commit()
+                print(f"Záznam s ID {ukol_cislo} byl úspěšně odstraněn.")
+        except mc.errors.Error as db_err:
+            print(f"chyba databáze: {db_err}")
+            if testovaci_rezim:
+                raise
+        except ValueError as v_err:
+            print(f'chyba: {v_err}')
+            if testovaci_rezim:
+                raise
 
 if __name__ == "__main__":
     # připojení k databázi

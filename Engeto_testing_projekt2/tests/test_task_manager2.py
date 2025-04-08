@@ -79,15 +79,33 @@ def test_odstranit_ukol(ukoly):
 
 # Negativní testy:
 
-@pytest.mark.parametrize("nazev, popis, ocekavana_hodnota", [
-   # Překročení délky sloupce
-    ('A' * 51, 'B' * 101,
-     mc.errors.DataError),
-    ("", "",
-     mc.errors.DataError)
+@pytest.mark.parametrize("nazev, popis, ukol_cislo, volba_stav, ocekavana_hodnota", [
+    # Testy pro pridat_ukol
+    ('A' * 51, 'B' * 101, None, None, mc.errors.DataError),  # Překročení délky sloupce
+    ("", "", None, None, ValueError),  # Prázdné hodnoty pro nazev a popis
+
+    # Testy pro aktualizovat_ukoly
+    (None, None, 9999, None, ValueError),  # Neexistující ID
+    (None, None, "abc", None, ValueError),  # Neplatná hodnota ID (není číslo)
+    (None, None, 1, 3, ValueError),  # Neplatná volba stavu (mimo rozsah možností)
+
+    # Testy pro odstranit_ukol
+    (None, None, 9999, None, ValueError),  # Neexistující ID
+    (None, None, "xyz", None, ValueError),  # Neplatná hodnota ID (není číslo)
 ])
-def test_neplatna_data(ukoly, nazev, popis, ocekavana_hodnota):
+def test_neplatna_data(ukoly, nazev, popis, ukol_cislo, volba_stav, ocekavana_hodnota):
     with pytest.raises(ocekavana_hodnota):
-        ukoly.pridat_ukol(nazev, popis, testovaci_rezim=True)
+        # Testování pridat_ukol
+        if nazev is not None and popis is not None:
+            ukoly.pridat_ukol(nazev, popis, testovaci_rezim=True)
+
+        # Testování aktualizovat_ukoly
+        if ukol_cislo is not None and volba_stav is not None:
+            ukoly.aktualizovat_ukoly(volba_stav=volba_stav, ukol_cislo=ukol_cislo, testovaci_rezim=True)
+
+        # Testování odstranit_ukol
+        if ukol_cislo is not None:
+            ukoly.odstranit_ukol(ukol_cislo, testovaci_rezim=True)
+
 
 
